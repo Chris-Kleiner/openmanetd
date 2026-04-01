@@ -72,7 +72,7 @@ Ports: API + WebSocket = **8087**. Frontend server = **8081** (proxies `/api/*` 
 
 **Vite hot-reload dev server:**
 ```bash
-cd frontend && VITE_API_TARGET=http://<remote-host>:8081 npm run dev
+cd frontend && VITE_API_TARGET=http://<remote-host>:8081 pnpm run dev
 ```
 
 Proxy rules (`frontend/vite.config.js`):
@@ -85,7 +85,7 @@ Proxy rules (`frontend/vite.config.js`):
 ```
 
 **Linting:**
-Run `make lint-frontend` before committing frontend changes. The ESLint config at `frontend/eslint.config.js` covers all `.js`/`.jsx` files under `frontend/src/` (excluding `src/gen/`). To auto-fix fixable issues: `npm --prefix frontend run lint:fix`.
+Run `make lint-frontend` before committing frontend changes. The ESLint config at `frontend/eslint.config.js` covers all `.js`/`.jsx` files under `frontend/src/` (excluding `src/gen/`). To auto-fix fixable issues: `pnpm -C frontend run lint:fix`.
 
 ## Gotchas
 
@@ -94,6 +94,10 @@ Run `make lint-frontend` before committing frontend changes. The ESLint config a
 - **`static/` must be populated** before compiling the Go binary. The `//go:embed static/*` directive in `static.go` fails at compile time if the directory is empty. Run `make frontend` first, or use `make build`.
 - **Never edit `internal/api/`, `frontend/src/gen/`, or `internal/database/models/`** — generated, will be overwritten.
 - **No WriteTimeout on the API server** — intentional, required for long-lived streaming RPCs in CommsService.
+- **Cross-architecture builds**: The application must compile for `linux/amd64`, `linux/arm64`, and `linux/mipsle`. Use `golang.org/x/sys/unix` (not the frozen `syscall` package) for socket options and other OS-level constants to ensure portability.
+- **Concurrency safety is mandatory** for all Go code. Protect shared state with mutexes, ensure every goroutine has a shutdown path, and never access a plain `map` concurrently. Run `make test-race` to verify. See `.claude/rules/concurrency.md` for full rules.
+- **Resource efficiency is mandatory** — target devices include MIPS routers and embedded ARM boards with limited memory and CPU. Preallocate slices/maps, reuse buffers, avoid allocations in hot loops, compile regexps at package level, stream large data, and bound all caches and goroutine counts. See `.claude/rules/performance.md` for full rules.
+- **Idiomatic Go is mandatory** — follow community patterns from Effective Go and the Go Code Review Comments wiki. Early returns, error wrapping with `%w`, accept interfaces / return concrete types, `context.Context` as the first parameter, short names in short scopes, all-caps acronyms. See `.claude/rules/idiomatic-go.md` for full rules.
 
 ## Testing Patterns
 
